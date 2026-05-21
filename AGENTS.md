@@ -2,7 +2,7 @@
 
 ## Project
 
-Linda is a terminal pomodoro timer in Rust (edition 2024). It has two modes: a ratatui TUI (default) and a daemon mode that writes status to a file for tmux.
+Mija is a terminal pomodoro timer in Rust (edition 2024). It has two modes: a ratatui TUI (default) and a daemon mode that writes status to a file for tmux.
 
 ## Architecture
 

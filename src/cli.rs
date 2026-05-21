@@ -3,7 +3,7 @@ use clap::Parser;
 use crate::config::Config;
 
 #[derive(Parser)]
-#[command(name = "linda", about = "A pomodoro timer for the terminal")]
+#[command(name = "mija", about = "A pomodoro timer for the terminal")]
 pub struct Args {
     /// Run as a daemon (write status to file for tmux)
     #[arg(long)]
@@ -51,71 +51,71 @@ mod tests {
 
     #[test]
     fn default_args_not_daemon() {
-        let args = Args::parse_from(["linda"]);
+        let args = Args::parse_from(["mija"]);
         assert!(!args.daemon);
     }
 
     #[test]
     fn daemon_flag() {
-        let args = Args::parse_from(["linda", "--daemon"]);
+        let args = Args::parse_from(["mija", "--daemon"]);
         assert!(args.daemon);
     }
 
     #[test]
     fn custom_work_duration() {
-        let args = Args::parse_from(["linda", "--work", "30"]);
+        let args = Args::parse_from(["mija", "--work", "30"]);
         let config = args.to_config();
         assert_eq!(config.work_duration_secs, 30 * 60);
     }
 
     #[test]
     fn custom_short_break() {
-        let args = Args::parse_from(["linda", "--short-break", "10"]);
+        let args = Args::parse_from(["mija", "--short-break", "10"]);
         let config = args.to_config();
         assert_eq!(config.short_break_duration_secs, 10 * 60);
     }
 
     #[test]
     fn custom_long_break() {
-        let args = Args::parse_from(["linda", "--long-break", "20"]);
+        let args = Args::parse_from(["mija", "--long-break", "20"]);
         let config = args.to_config();
         assert_eq!(config.long_break_duration_secs, 20 * 60);
     }
 
     #[test]
     fn custom_rounds() {
-        let args = Args::parse_from(["linda", "--rounds", "6"]);
+        let args = Args::parse_from(["mija", "--rounds", "6"]);
         let config = args.to_config();
         assert_eq!(config.rounds_before_long_break, 6);
     }
 
     #[test]
     fn default_no_bell() {
-        let args = Args::parse_from(["linda"]);
+        let args = Args::parse_from(["mija"]);
         assert!(!args.bell);
     }
 
     #[test]
     fn bell_flag() {
-        let args = Args::parse_from(["linda", "--bell"]);
+        let args = Args::parse_from(["mija", "--bell"]);
         assert!(args.bell);
     }
 
     #[test]
     fn default_no_notify() {
-        let args = Args::parse_from(["linda"]);
+        let args = Args::parse_from(["mija"]);
         assert!(!args.notify);
     }
 
     #[test]
     fn notify_flag() {
-        let args = Args::parse_from(["linda", "--notify"]);
+        let args = Args::parse_from(["mija", "--notify"]);
         assert!(args.notify);
     }
 
     #[test]
     fn defaults_match_config_defaults() {
-        let args = Args::parse_from(["linda"]);
+        let args = Args::parse_from(["mija"]);
         let config = args.to_config();
         let default = Config::default();
         assert_eq!(config.work_duration_secs, default.work_duration_secs);

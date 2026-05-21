@@ -75,7 +75,7 @@ pub struct DesktopSender;
 impl AlertSender for DesktopSender {
     fn send(&self, message: &str) {
         let _ = notify_rust::Notification::new()
-            .summary("Linda")
+            .summary("Mija")
             .body(message)
             .show();
     }

@@ -676,17 +676,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48f5d2a454e16a5ea0f4ced81bd44e4cfc7bd3a507b61887c99fd3538b28e4af"
 
 [[package]]
-name = "linda"
-version = "0.1.0"
-dependencies = [
- "clap",
- "crossterm",
- "notify-rust",
- "ratatui",
- "tempfile",
-]
-
-[[package]]
 name = "linux-raw-sys"
 version = "0.4.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -747,6 +736,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "488016bfae457b036d996092f6cb448677611ce4449e970ceaf42695203f218a"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "mija"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "crossterm",
+ "notify-rust",
+ "ratatui",
+ "tempfile",
 ]
 
 [[package]]

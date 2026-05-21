@@ -1,4 +1,4 @@
-# Linda
+# Mija
 
 A terminal pomodoro timer built in Rust. Named after the tomato.
 
