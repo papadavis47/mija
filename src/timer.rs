@@ -89,8 +89,9 @@ impl Timer {
     }
 
     pub fn format_remaining(&self) -> String {
-        let minutes = self.remaining_secs / 60;
-        let seconds = self.remaining_secs % 60;
+        let remaining_secs = self.remaining_secs();
+        let minutes = remaining_secs / 60;
+        let seconds = remaining_secs % 60;
         format!("{minutes:02}:{seconds:02}")
     }
 

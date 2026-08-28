@@ -1,8 +1,8 @@
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Gauge, Padding, Paragraph};
-use ratatui::Frame;
 
 use crate::app::App;
 use crate::timer::State;
@@ -19,14 +19,20 @@ pub fn draw(frame: &mut Frame, app: &App) {
             Constraint::Length(5), // timer display
             Constraint::Length(3), // progress bar
             Constraint::Length(3), // round info
-            Constraint::Min(0),   // help
+            Constraint::Min(0),    // help
         ])
         .split(area);
 
     draw_status(frame, timer.state(), chunks[0]);
     draw_countdown(frame, &timer.format_remaining(), chunks[1]);
     draw_progress(frame, timer.progress(), timer.state(), chunks[2]);
-    draw_round_info(frame, timer.current_round(), timer.total_rounds(), timer.completed_pomodoros(), chunks[3]);
+    draw_round_info(
+        frame,
+        timer.current_round(),
+        timer.total_rounds(),
+        timer.completed_pomodoros(),
+        chunks[3],
+    );
     draw_help(frame, timer.state(), chunks[4]);
 }
 

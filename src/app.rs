@@ -1,6 +1,6 @@
 use crate::alerts::AlertDispatcher;
 use crate::config::Config;
-use crate::timer::{Timer, Transition};
+use crate::timer::Timer;
 
 pub enum Action {
     Quit,
@@ -51,9 +51,9 @@ impl App {
 
     pub fn toggle_pause(&mut self) {
         if self.timer.state() == crate::timer::State::Paused {
-            self.timer.resume();
+            self.handle_action(Action::Resume);
         } else {
-            self.timer.pause();
+            self.handle_action(Action::Pause);
         }
     }
 }
@@ -80,7 +80,7 @@ mod tests {
         let sender = MockSender {
             messages: Arc::clone(&messages),
         };
-        let alerts = AlertDispatcher::new(Box::new(sender));
+        let alerts = AlertDispatcher::new(vec![Box::new(sender)]);
         let app = App::new(Config::default(), alerts);
         (app, messages)
     }
@@ -142,7 +142,7 @@ mod tests {
         let sender = MockSender {
             messages: Arc::clone(&messages),
         };
-        let alerts = AlertDispatcher::new(Box::new(sender));
+        let alerts = AlertDispatcher::new(vec![Box::new(sender)]);
         let config = Config {
             work_duration_secs: 1,
             ..Config::default()

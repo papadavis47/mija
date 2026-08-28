@@ -12,13 +12,7 @@ pub trait AlertSender: Send {
 }
 
 impl AlertDispatcher {
-    pub fn new(sender: Box<dyn AlertSender>) -> Self {
-        Self {
-            senders: vec![sender],
-        }
-    }
-
-    pub fn with_senders(senders: Vec<Box<dyn AlertSender>>) -> Self {
+    pub fn new(senders: Vec<Box<dyn AlertSender>>) -> Self {
         Self { senders }
     }
 
@@ -101,7 +95,7 @@ mod tests {
         let sender = MockSender {
             messages: Arc::clone(&messages),
         };
-        (AlertDispatcher::new(Box::new(sender)), messages)
+        (AlertDispatcher::new(vec![Box::new(sender)]), messages)
     }
 
     #[test]
@@ -184,10 +178,7 @@ mod tests {
         let sender_b = MockSender {
             messages: Arc::clone(&messages_b),
         };
-        let dispatcher = AlertDispatcher::with_senders(vec![
-            Box::new(sender_a),
-            Box::new(sender_b),
-        ]);
+        let dispatcher = AlertDispatcher::new(vec![Box::new(sender_a), Box::new(sender_b)]);
         dispatcher.on_transition(Transition {
             from: State::Work,
             to: State::ShortBreak,
@@ -198,7 +189,7 @@ mod tests {
 
     #[test]
     fn dispatcher_with_no_senders_does_not_panic() {
-        let dispatcher = AlertDispatcher::with_senders(vec![]);
+        let dispatcher = AlertDispatcher::new(vec![]);
         dispatcher.on_transition(Transition {
             from: State::Work,
             to: State::ShortBreak,

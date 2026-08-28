@@ -28,7 +28,7 @@ fn main() -> io::Result<()> {
     if args.notify {
         senders.push(Box::new(DesktopSender));
     }
-    let alerts = AlertDispatcher::with_senders(senders);
+    let alerts = AlertDispatcher::new(senders);
 
     if args.daemon {
         run_daemon(config, &alerts);
@@ -67,14 +67,14 @@ fn run_tui(config: config::Config, alerts: AlertDispatcher) -> io::Result<()> {
         terminal.draw(|frame| ui::draw(frame, &app))?;
 
         if event::poll(Duration::from_secs(1))? {
-            if let Event::Key(key) = event::read()? {
-                if key.kind == KeyEventKind::Press {
-                    match key.code {
-                        KeyCode::Char('q') => app.handle_action(Action::Quit),
-                        KeyCode::Char(' ') => app.toggle_pause(),
-                        KeyCode::Char('s') => app.handle_action(Action::Skip),
-                        _ => {}
-                    }
+            if let Event::Key(key) = event::read()?
+                && key.kind == KeyEventKind::Press
+            {
+                match key.code {
+                    KeyCode::Char('q') => app.handle_action(Action::Quit),
+                    KeyCode::Char(' ') => app.toggle_pause(),
+                    KeyCode::Char('s') => app.handle_action(Action::Skip),
+                    _ => {}
                 }
             }
         } else {
