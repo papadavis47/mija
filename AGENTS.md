@@ -2,18 +2,45 @@
 
 ## Project
 
-Mija is a terminal pomodoro timer in Rust (edition 2024). It has two modes: a ratatui TUI (default) and a daemon mode that writes status to a file for tmux.
+Mija is a terminal Pomodoro timer in Rust (edition 2024). It runs as a Ratatui
+TUI and automatically sends native notifications when running inside Herdr.
+
+## Running the app
+
+From the repository root:
+
+```sh
+cargo run
+```
+
+Use custom durations with:
+
+```sh
+cargo run -- --work 25 --short-break 5 --long-break 15 --rounds 4
+```
+
+Add `--bell` for terminal bells or `--notify` for desktop notifications.
+
+For local Herdr plugin development:
+
+```sh
+cargo build --release
+herdr plugin link "$(pwd)"
+herdr plugin pane open --plugin mija.timer --entrypoint timer
+```
+
+Re-run `cargo build --release` after code changes. Unlink the checkout with
+`herdr plugin unlink mija.timer`.
 
 ## Architecture
 
 - `config.rs` — `Config` struct with durations and round count
 - `timer.rs` — `Timer` state machine (`Idle → Work → ShortBreak/LongBreak → Work`), `Transition` struct, `State` enum
-- `alerts.rs` — `AlertDispatcher` with pluggable `AlertSender` trait (tmux, bell, desktop notifications)
-- `status_file.rs` — Writes formatted status to a file, cleans up on `Drop`
+- `alerts.rs` — Structured alerts and `AlertDispatcher` with pluggable `AlertSender` implementations for Herdr, terminal bells, and desktop notifications
 - `app.rs` — `App` struct wrapping `Timer` + `AlertDispatcher`, handles `Action` dispatch
 - `ui.rs` — Ratatui rendering (status, countdown, progress gauge, round info, help)
 - `cli.rs` — Clap `Args` struct, converts to `Config`
-- `main.rs` — Entry point, wires CLI → Config → App → TUI or daemon loop
+- `main.rs` — Entry point, wires CLI → Config → alert senders → App → TUI
 
 ## Conventions
 

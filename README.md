@@ -1,24 +1,48 @@
 # Mija
 
-A terminal pomodoro timer built in Rust. Named after the tomato.
+Mija is a terminal Pomodoro timer built in Rust. **Mija** is a Spanish word for
+"daughter" or "my daughter," pronounced **MEE-hah** (IPA: `/ˈmi.xa/`; the `j`
+sounds like an English `h`).
 
-## Usage
+The name comes from the word I often use when speaking to my daughter. I
+frequently see her while I am working at my computer, and her visits are a
+welcome reminder to take a break and spend time interacting with her.
+
+## Run Mija
+
+From the project directory, start the app with:
 
 ```sh
 cargo run
 ```
 
-### TUI Mode (default)
-
-Runs a full-screen terminal UI with countdown, progress bar, and session tracking.
+This opens the full-screen terminal UI, starts a 25-minute work period, and
+shows the countdown, progress bar, and session tracking.
 When Mija runs inside [Herdr](https://herdr.dev/), it automatically sends native
 Herdr notifications as work and break periods finish.
+
+### Controls
 
 | Key     | Action       |
 |---------|--------------|
 | `space` | Pause/Resume |
 | `s`     | Skip         |
 | `q`     | Quit         |
+
+### Custom durations and alerts
+
+Durations are specified in minutes:
+
+```sh
+cargo run -- --work 25 --short-break 5 --long-break 15 --rounds 4
+```
+
+Add `--bell` for terminal bells or `--notify` for desktop notifications:
+
+```sh
+cargo run -- --bell
+cargo run -- --notify
+```
 
 ### Herdr
 
@@ -40,7 +64,17 @@ herdr plugin pane open --plugin mija.timer --entrypoint timer
 ```
 
 The plugin manifest builds the release binary when installed from GitHub.
-Unlink a development checkout with `herdr plugin unlink mija.timer`.
+After changing Mija's code, rebuild the linked plugin with:
+
+```sh
+cargo build --release
+```
+
+Unlink a development checkout with:
+
+```sh
+herdr plugin unlink mija.timer
+```
 
 ### Options
 
