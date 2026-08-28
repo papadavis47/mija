@@ -5,10 +5,6 @@ use crate::config::Config;
 #[derive(Parser)]
 #[command(name = "mija", about = "A pomodoro timer for the terminal")]
 pub struct Args {
-    /// Run as a daemon (write status to file for tmux)
-    #[arg(long)]
-    pub daemon: bool,
-
     /// Work duration in minutes
     #[arg(long, default_value_t = 25)]
     pub work: u32,
@@ -48,18 +44,6 @@ impl Args {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn default_args_not_daemon() {
-        let args = Args::parse_from(["mija"]);
-        assert!(!args.daemon);
-    }
-
-    #[test]
-    fn daemon_flag() {
-        let args = Args::parse_from(["mija", "--daemon"]);
-        assert!(args.daemon);
-    }
 
     #[test]
     fn custom_work_duration() {

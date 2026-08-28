@@ -746,7 +746,6 @@ dependencies = [
  "crossterm",
  "notify-rust",
  "ratatui",
- "tempfile",
 ]
 
 [[package]]

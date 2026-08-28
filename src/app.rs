@@ -61,28 +61,28 @@ impl App {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::alerts::{AlertDispatcher, AlertSender};
+    use crate::alerts::{Alert, AlertDispatcher, AlertSender};
     use crate::timer::State;
     use std::sync::{Arc, Mutex};
 
     struct MockSender {
-        messages: Arc<Mutex<Vec<String>>>,
+        alerts: Arc<Mutex<Vec<Alert>>>,
     }
 
     impl AlertSender for MockSender {
-        fn send(&self, message: &str) {
-            self.messages.lock().unwrap().push(message.to_string());
+        fn send(&self, alert: Alert) {
+            self.alerts.lock().unwrap().push(alert);
         }
     }
 
-    fn test_app() -> (App, Arc<Mutex<Vec<String>>>) {
-        let messages = Arc::new(Mutex::new(Vec::new()));
+    fn test_app() -> (App, Arc<Mutex<Vec<Alert>>>) {
+        let alerts = Arc::new(Mutex::new(Vec::new()));
         let sender = MockSender {
-            messages: Arc::clone(&messages),
+            alerts: Arc::clone(&alerts),
         };
-        let alerts = AlertDispatcher::new(vec![Box::new(sender)]);
-        let app = App::new(Config::default(), alerts);
-        (app, messages)
+        let dispatcher = AlertDispatcher::new(vec![Box::new(sender)]);
+        let app = App::new(Config::default(), dispatcher);
+        (app, alerts)
     }
 
     #[test]
@@ -131,25 +131,25 @@ mod tests {
 
     #[test]
     fn skip_action_fires_alert() {
-        let (mut app, messages) = test_app();
+        let (mut app, alerts) = test_app();
         app.handle_action(Action::Skip);
-        assert_eq!(messages.lock().unwrap().len(), 1);
+        assert_eq!(alerts.lock().unwrap().len(), 1);
     }
 
     #[test]
     fn tick_transition_fires_alert() {
-        let messages = Arc::new(Mutex::new(Vec::new()));
+        let alerts = Arc::new(Mutex::new(Vec::new()));
         let sender = MockSender {
-            messages: Arc::clone(&messages),
+            alerts: Arc::clone(&alerts),
         };
-        let alerts = AlertDispatcher::new(vec![Box::new(sender)]);
+        let dispatcher = AlertDispatcher::new(vec![Box::new(sender)]);
         let config = Config {
             work_duration_secs: 1,
             ..Config::default()
         };
-        let mut app = App::new(config, alerts);
+        let mut app = App::new(config, dispatcher);
         app.handle_action(Action::Tick);
-        assert_eq!(messages.lock().unwrap().len(), 1);
+        assert_eq!(alerts.lock().unwrap().len(), 1);
     }
 
     #[test]

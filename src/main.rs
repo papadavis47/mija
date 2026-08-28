@@ -2,26 +2,25 @@ mod alerts;
 mod app;
 mod cli;
 mod config;
-mod status_file;
 mod timer;
 mod ui;
 
-use alerts::{AlertDispatcher, AlertSender, BellSender, DesktopSender, TmuxSender};
+use alerts::{AlertDispatcher, AlertSender, BellSender, DesktopSender, HerdrSender};
 use app::{Action, App};
 use clap::Parser;
 use cli::Args;
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
-use status_file::StatusFile;
 use std::io;
-use std::path::PathBuf;
 use std::time::Duration;
-use timer::Timer;
 
 fn main() -> io::Result<()> {
     let args = Args::parse();
     let config = args.to_config();
 
-    let mut senders: Vec<Box<dyn AlertSender>> = vec![Box::new(TmuxSender)];
+    let mut senders: Vec<Box<dyn AlertSender>> = Vec::new();
+    if let Some(sender) = HerdrSender::from_env() {
+        senders.push(Box::new(sender));
+    }
     if args.bell {
         senders.push(Box::new(BellSender::stdout()));
     }
@@ -30,33 +29,7 @@ fn main() -> io::Result<()> {
     }
     let alerts = AlertDispatcher::new(senders);
 
-    if args.daemon {
-        run_daemon(config, &alerts);
-        Ok(())
-    } else {
-        run_tui(config, alerts)
-    }
-}
-
-fn run_daemon(config: config::Config, alerts: &AlertDispatcher) {
-    let mut timer = Timer::new(config);
-    let status_file = StatusFile::new(PathBuf::from("/tmp/pomodoro_status"));
-
-    timer.start();
-
-    loop {
-        let _ = status_file.write(&timer.format_status());
-
-        std::thread::sleep(Duration::from_secs(1));
-
-        if let Some(transition) = timer.tick() {
-            alerts.on_transition(transition);
-        }
-
-        if timer.state() == timer::State::Idle {
-            break;
-        }
-    }
+    run_tui(config, alerts)
 }
 
 fn run_tui(config: config::Config, alerts: AlertDispatcher) -> io::Result<()> {

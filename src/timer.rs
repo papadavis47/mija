@@ -95,20 +95,6 @@ impl Timer {
         format!("{minutes:02}:{seconds:02}")
     }
 
-    pub fn status_label(&self) -> &'static str {
-        match self.state {
-            State::Idle => "⏹ idle",
-            State::Work => "🍅 work",
-            State::ShortBreak => "☕ short break",
-            State::LongBreak => "🌴 long break",
-            State::Paused => "⏸ paused",
-        }
-    }
-
-    pub fn format_status(&self) -> String {
-        format!("{} {}", self.status_label(), self.format_remaining())
-    }
-
     pub fn skip(&mut self) -> Option<Transition> {
         match self.state {
             State::Work | State::ShortBreak | State::LongBreak => {
@@ -477,64 +463,6 @@ mod tests {
         timer.start();
         timer.pause();
         assert_eq!(timer.tick(), None);
-    }
-
-    #[test]
-    fn status_label_for_work() {
-        let mut timer = Timer::new(Config::default());
-        timer.start();
-        assert_eq!(timer.status_label(), "🍅 work");
-    }
-
-    #[test]
-    fn status_label_for_short_break() {
-        let config = Config {
-            work_duration_secs: 1,
-            ..Config::default()
-        };
-        let mut timer = Timer::new(config);
-        timer.start();
-        timer.tick();
-        assert_eq!(timer.status_label(), "☕ short break");
-    }
-
-    #[test]
-    fn status_label_for_long_break() {
-        let config = Config {
-            work_duration_secs: 1,
-            short_break_duration_secs: 1,
-            rounds_before_long_break: 1,
-            ..Config::default()
-        };
-        let mut timer = Timer::new(config);
-        timer.start();
-        timer.tick();
-        assert_eq!(timer.status_label(), "🌴 long break");
-    }
-
-    #[test]
-    fn status_label_for_idle() {
-        let timer = Timer::new(Config::default());
-        assert_eq!(timer.status_label(), "⏹ idle");
-    }
-
-    #[test]
-    fn status_label_for_paused() {
-        let mut timer = Timer::new(Config::default());
-        timer.start();
-        timer.pause();
-        assert_eq!(timer.status_label(), "⏸ paused");
-    }
-
-    #[test]
-    fn format_status_line() {
-        let config = Config {
-            work_duration_secs: 754,
-            ..Config::default()
-        };
-        let mut timer = Timer::new(config);
-        timer.start();
-        assert_eq!(timer.format_status(), "🍅 work 12:34");
     }
 
     #[test]

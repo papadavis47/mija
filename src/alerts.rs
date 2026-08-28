@@ -1,14 +1,30 @@
+use std::ffi::{OsStr, OsString};
 use std::io::Write;
+use std::path::PathBuf;
+use std::process::{Command, Stdio};
 use std::sync::Mutex;
 
 use crate::timer::{State, Transition};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Alert {
+    pub title: &'static str,
+    pub body: &'static str,
+    pub kind: AlertKind,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AlertKind {
+    Completed,
+    Attention,
+}
 
 pub struct AlertDispatcher {
     senders: Vec<Box<dyn AlertSender>>,
 }
 
 pub trait AlertSender: Send {
-    fn send(&self, message: &str);
+    fn send(&self, alert: Alert);
 }
 
 impl AlertDispatcher {
@@ -17,25 +33,95 @@ impl AlertDispatcher {
     }
 
     pub fn on_transition(&self, transition: Transition) {
-        let message = match (transition.from, transition.to) {
-            (State::Work, State::ShortBreak) => "🍅 Pomodoro complete! Time for a short break.",
-            (State::Work, State::LongBreak) => "🌴 Long break! You've earned it.",
-            (State::ShortBreak | State::LongBreak, State::Work) => "🍅 Back to work!",
+        let alert = match (transition.from, transition.to) {
+            (State::Work, State::ShortBreak) => Alert {
+                title: "Mija",
+                body: "🍅 Pomodoro complete! Time for a short break.",
+                kind: AlertKind::Completed,
+            },
+            (State::Work, State::LongBreak) => Alert {
+                title: "Mija",
+                body: "🌴 Long break! You've earned it.",
+                kind: AlertKind::Completed,
+            },
+            (State::ShortBreak | State::LongBreak, State::Work) => Alert {
+                title: "Mija",
+                body: "🍅 Back to work!",
+                kind: AlertKind::Attention,
+            },
             _ => return,
         };
         for sender in &self.senders {
-            sender.send(message);
+            sender.send(alert);
         }
     }
 }
 
-pub struct TmuxSender;
+trait CommandRunner: Send {
+    fn run(&self, program: &OsStr, args: &[&str]);
+}
 
-impl AlertSender for TmuxSender {
-    fn send(&self, message: &str) {
-        let _ = std::process::Command::new("tmux")
-            .args(["display-message", message])
-            .spawn();
+struct ProcessRunner;
+
+impl CommandRunner for ProcessRunner {
+    fn run(&self, program: &OsStr, args: &[&str]) {
+        let _ = Command::new(program)
+            .args(args)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+    }
+}
+
+pub struct HerdrSender {
+    program: PathBuf,
+    runner: Box<dyn CommandRunner>,
+}
+
+impl HerdrSender {
+    pub fn from_env() -> Option<Self> {
+        Self::from_environment(|name| std::env::var_os(name))
+    }
+
+    fn from_environment(get_var: impl Fn(&str) -> Option<OsString>) -> Option<Self> {
+        if get_var("HERDR_ENV").as_deref() != Some(OsStr::new("1")) {
+            return None;
+        }
+
+        let program = get_var("HERDR_BIN_PATH")
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| OsString::from("herdr"));
+        Some(Self {
+            program: PathBuf::from(program),
+            runner: Box::new(ProcessRunner),
+        })
+    }
+
+    #[cfg(test)]
+    fn with_runner(program: PathBuf, runner: Box<dyn CommandRunner>) -> Self {
+        Self { program, runner }
+    }
+}
+
+impl AlertSender for HerdrSender {
+    fn send(&self, alert: Alert) {
+        let sound = match alert.kind {
+            AlertKind::Completed => "done",
+            AlertKind::Attention => "request",
+        };
+        self.runner.run(
+            self.program.as_os_str(),
+            &[
+                "notification",
+                "show",
+                alert.title,
+                "--body",
+                alert.body,
+                "--sound",
+                sound,
+            ],
+        );
     }
 }
 
@@ -56,7 +142,7 @@ impl BellSender {
 }
 
 impl AlertSender for BellSender {
-    fn send(&self, _message: &str) {
+    fn send(&self, _alert: Alert) {
         if let Ok(mut w) = self.writer.lock() {
             let _ = w.write_all(b"\x07");
             let _ = w.flush();
@@ -67,10 +153,10 @@ impl AlertSender for BellSender {
 pub struct DesktopSender;
 
 impl AlertSender for DesktopSender {
-    fn send(&self, message: &str) {
+    fn send(&self, alert: Alert) {
         let _ = notify_rust::Notification::new()
-            .summary("Mija")
-            .body(message)
+            .summary(alert.title)
+            .body(alert.body)
             .show();
     }
 }
@@ -81,110 +167,111 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     struct MockSender {
-        messages: Arc<Mutex<Vec<String>>>,
+        alerts: Arc<Mutex<Vec<Alert>>>,
     }
 
     impl AlertSender for MockSender {
-        fn send(&self, message: &str) {
-            self.messages.lock().unwrap().push(message.to_string());
+        fn send(&self, alert: Alert) {
+            self.alerts.lock().unwrap().push(alert);
         }
     }
 
-    fn mock_dispatcher() -> (AlertDispatcher, Arc<Mutex<Vec<String>>>) {
-        let messages = Arc::new(Mutex::new(Vec::new()));
+    fn mock_dispatcher() -> (AlertDispatcher, Arc<Mutex<Vec<Alert>>>) {
+        let alerts = Arc::new(Mutex::new(Vec::new()));
         let sender = MockSender {
-            messages: Arc::clone(&messages),
+            alerts: Arc::clone(&alerts),
         };
-        (AlertDispatcher::new(vec![Box::new(sender)]), messages)
+        (AlertDispatcher::new(vec![Box::new(sender)]), alerts)
     }
 
     #[test]
     fn alerts_on_work_to_short_break() {
-        let (dispatcher, messages) = mock_dispatcher();
+        let (dispatcher, alerts) = mock_dispatcher();
         dispatcher.on_transition(Transition {
             from: State::Work,
             to: State::ShortBreak,
         });
-        let msgs = messages.lock().unwrap();
-        assert_eq!(msgs.len(), 1);
-        assert!(msgs[0].contains("Pomodoro complete"));
+        let alerts = alerts.lock().unwrap();
+        assert_eq!(alerts.len(), 1);
+        assert!(alerts[0].body.contains("Pomodoro complete"));
+        assert_eq!(alerts[0].kind, AlertKind::Completed);
     }
 
     #[test]
     fn alerts_on_work_to_long_break() {
-        let (dispatcher, messages) = mock_dispatcher();
+        let (dispatcher, alerts) = mock_dispatcher();
         dispatcher.on_transition(Transition {
             from: State::Work,
             to: State::LongBreak,
         });
-        let msgs = messages.lock().unwrap();
-        assert_eq!(msgs.len(), 1);
-        assert!(msgs[0].contains("Long break"));
+        let alerts = alerts.lock().unwrap();
+        assert_eq!(alerts.len(), 1);
+        assert!(alerts[0].body.contains("Long break"));
+        assert_eq!(alerts[0].kind, AlertKind::Completed);
     }
 
     #[test]
     fn alerts_on_break_to_work() {
-        let (dispatcher, messages) = mock_dispatcher();
+        let (dispatcher, alerts) = mock_dispatcher();
         dispatcher.on_transition(Transition {
             from: State::ShortBreak,
             to: State::Work,
         });
-        let msgs = messages.lock().unwrap();
-        assert_eq!(msgs.len(), 1);
-        assert!(msgs[0].contains("Back to work"));
+        let alerts = alerts.lock().unwrap();
+        assert_eq!(alerts.len(), 1);
+        assert!(alerts[0].body.contains("Back to work"));
+        assert_eq!(alerts[0].kind, AlertKind::Attention);
     }
 
     #[test]
     fn alerts_on_long_break_to_work() {
-        let (dispatcher, messages) = mock_dispatcher();
+        let (dispatcher, alerts) = mock_dispatcher();
         dispatcher.on_transition(Transition {
             from: State::LongBreak,
             to: State::Work,
         });
-        let msgs = messages.lock().unwrap();
-        assert_eq!(msgs.len(), 1);
-        assert!(msgs[0].contains("Back to work"));
+        let alerts = alerts.lock().unwrap();
+        assert_eq!(alerts.len(), 1);
+        assert!(alerts[0].body.contains("Back to work"));
     }
 
     #[test]
     fn message_for_work_complete_includes_tomato() {
-        let (dispatcher, messages) = mock_dispatcher();
+        let (dispatcher, alerts) = mock_dispatcher();
         dispatcher.on_transition(Transition {
             from: State::Work,
             to: State::ShortBreak,
         });
-        let msgs = messages.lock().unwrap();
-        assert!(msgs[0].contains("🍅"));
+        assert!(alerts.lock().unwrap()[0].body.contains("🍅"));
     }
 
     #[test]
     fn message_for_long_break_includes_palm() {
-        let (dispatcher, messages) = mock_dispatcher();
+        let (dispatcher, alerts) = mock_dispatcher();
         dispatcher.on_transition(Transition {
             from: State::Work,
             to: State::LongBreak,
         });
-        let msgs = messages.lock().unwrap();
-        assert!(msgs[0].contains("🌴"));
+        assert!(alerts.lock().unwrap()[0].body.contains("🌴"));
     }
 
     #[test]
     fn dispatcher_sends_to_multiple_senders() {
-        let messages_a = Arc::new(Mutex::new(Vec::new()));
-        let messages_b = Arc::new(Mutex::new(Vec::new()));
+        let alerts_a = Arc::new(Mutex::new(Vec::new()));
+        let alerts_b = Arc::new(Mutex::new(Vec::new()));
         let sender_a = MockSender {
-            messages: Arc::clone(&messages_a),
+            alerts: Arc::clone(&alerts_a),
         };
         let sender_b = MockSender {
-            messages: Arc::clone(&messages_b),
+            alerts: Arc::clone(&alerts_b),
         };
         let dispatcher = AlertDispatcher::new(vec![Box::new(sender_a), Box::new(sender_b)]);
         dispatcher.on_transition(Transition {
             from: State::Work,
             to: State::ShortBreak,
         });
-        assert_eq!(messages_a.lock().unwrap().len(), 1);
-        assert_eq!(messages_b.lock().unwrap().len(), 1);
+        assert_eq!(alerts_a.lock().unwrap().len(), 1);
+        assert_eq!(alerts_b.lock().unwrap().len(), 1);
     }
 
     #[test]
@@ -200,9 +287,103 @@ mod tests {
     fn bell_sender_produces_bell_character() {
         let output = Arc::new(Mutex::new(Vec::new()));
         let sender = BellSender::new(Box::new(MockWriter(Arc::clone(&output))));
-        sender.send("ignored message");
+        sender.send(short_break_alert());
         let bytes = output.lock().unwrap();
         assert_eq!(&*bytes, b"\x07");
+    }
+
+    #[test]
+    fn herdr_sender_uses_done_sound_for_completed_work() {
+        let calls = Arc::new(Mutex::new(Vec::new()));
+        let sender = HerdrSender::with_runner(
+            PathBuf::from("/opt/herdr"),
+            Box::new(MockRunner(Arc::clone(&calls))),
+        );
+
+        sender.send(short_break_alert());
+
+        let calls = calls.lock().unwrap();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].0, PathBuf::from("/opt/herdr"));
+        assert_eq!(
+            calls[0].1,
+            [
+                "notification",
+                "show",
+                "Mija",
+                "--body",
+                "🍅 Pomodoro complete! Time for a short break.",
+                "--sound",
+                "done"
+            ]
+        );
+    }
+
+    #[test]
+    fn herdr_sender_uses_request_sound_when_break_ends() {
+        let calls = Arc::new(Mutex::new(Vec::new()));
+        let sender = HerdrSender::with_runner(
+            PathBuf::from("herdr"),
+            Box::new(MockRunner(Arc::clone(&calls))),
+        );
+
+        sender.send(Alert {
+            title: "Mija",
+            body: "🍅 Back to work!",
+            kind: AlertKind::Attention,
+        });
+
+        assert_eq!(calls.lock().unwrap()[0].1[6], "request");
+    }
+
+    #[test]
+    fn herdr_sender_is_enabled_only_inside_herdr() {
+        assert!(HerdrSender::from_environment(|_| None).is_none());
+        assert!(
+            HerdrSender::from_environment(|name| {
+                (name == "HERDR_ENV").then(|| OsString::from("0"))
+            })
+            .is_none()
+        );
+        assert!(
+            HerdrSender::from_environment(|name| {
+                (name == "HERDR_ENV").then(|| OsString::from("1"))
+            })
+            .is_some()
+        );
+    }
+
+    #[test]
+    fn herdr_sender_prefers_injected_binary_path() {
+        let sender = HerdrSender::from_environment(|name| match name {
+            "HERDR_ENV" => Some(OsString::from("1")),
+            "HERDR_BIN_PATH" => Some(OsString::from("/custom/herdr")),
+            _ => None,
+        })
+        .unwrap();
+
+        assert_eq!(sender.program, PathBuf::from("/custom/herdr"));
+    }
+
+    fn short_break_alert() -> Alert {
+        Alert {
+            title: "Mija",
+            body: "🍅 Pomodoro complete! Time for a short break.",
+            kind: AlertKind::Completed,
+        }
+    }
+
+    type Calls = Arc<Mutex<Vec<(PathBuf, Vec<String>)>>>;
+
+    struct MockRunner(Calls);
+
+    impl CommandRunner for MockRunner {
+        fn run(&self, program: &OsStr, args: &[&str]) {
+            self.0.lock().unwrap().push((
+                PathBuf::from(program),
+                args.iter().map(|arg| (*arg).to_string()).collect(),
+            ));
+        }
     }
 
     struct MockWriter(Arc<Mutex<Vec<u8>>>);

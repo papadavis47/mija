@@ -11,6 +11,8 @@ cargo run
 ### TUI Mode (default)
 
 Runs a full-screen terminal UI with countdown, progress bar, and session tracking.
+When Mija runs inside [Herdr](https://herdr.dev/), it automatically sends native
+Herdr notifications as work and break periods finish.
 
 | Key     | Action       |
 |---------|--------------|
@@ -18,20 +20,27 @@ Runs a full-screen terminal UI with countdown, progress bar, and session trackin
 | `s`     | Skip         |
 | `q`     | Quit         |
 
-### Daemon Mode
+### Herdr
 
-Writes timer state to `/tmp/pomodoro_status` for use in a tmux status bar:
+Run `mija` in a dedicated Herdr tab so the timer can continue while you work in
+another tab. Completed work periods use Herdr's `done` notification sound;
+completed breaks use its `request` sound.
+
+For local plugin development, build Mija and link this checkout:
 
 ```sh
-cargo run -- --daemon
+cargo build --release
+herdr plugin link "$(pwd)"
 ```
 
-Add to `~/.tmux.conf`:
+Then open the timer as a Herdr-managed tab:
 
+```sh
+herdr plugin pane open --plugin mija.timer --entrypoint timer
 ```
-set -g status-right '#(cat /tmp/pomodoro_status)'
-set -g status-interval 1
-```
+
+The plugin manifest builds the release binary when installed from GitHub.
+Unlink a development checkout with `herdr plugin unlink mija.timer`.
 
 ### Options
 
@@ -42,7 +51,6 @@ set -g status-interval 1
 --rounds <N>          Rounds before long break (default: 4)
 --bell                Terminal bell on transitions
 --notify              Desktop notifications on transitions
---daemon              Run in daemon mode
 ```
 
 ## Tests
