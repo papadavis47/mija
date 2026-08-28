@@ -1,11 +1,12 @@
 # Mija
 
-Mija is a terminal Pomodoro timer built in Rust. **Mija** is a Spanish word for
-"daughter" or "my daughter," pronounced **MEE-hah** (IPA: `/ˈmi.xa/`; the `j`
-sounds like an English `h`).
+Mija is a terminal Pomodoro timer built in Rust.
 
-The name comes from the word I often use when speaking to my daughter. I
-frequently see her while I am working at my computer, and her visits are a
+**Mija** is a colloquial Spanish word for "my daughter," pronounced **MEE-hah** (IPA: `/ˈmi.xa/`; the `j` sounds like an English `h`). Shortened from "_**mi hija**_".
+
+The name comes from the word I often use when speaking to my daughter.
+
+I frequently see her while I am working at my computer, and her visits are a
 welcome reminder to take a break and spend time interacting with her.
 
 ## Run Mija
@@ -24,7 +25,7 @@ Herdr notifications as work and break periods finish.
 ### Controls
 
 | Key     | Action       |
-|---------|--------------|
+| ------- | ------------ |
 | `space` | Pause/Resume |
 | `s`     | Skip         |
 | `q`     | Quit         |
