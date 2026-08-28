@@ -49,7 +49,7 @@ fn state_color(state: State) -> Color {
 fn draw_status(frame: &mut Frame, state: State, area: Rect) {
     let label = match state {
         State::Idle => "⏹  IDLE",
-        State::Work => "🍅 WORK",
+        State::Work => "WORK",
         State::ShortBreak => "☕ SHORT BREAK",
         State::LongBreak => "🌴 LONG BREAK",
         State::Paused => "⏸  PAUSED",
