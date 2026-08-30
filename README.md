@@ -17,8 +17,14 @@ From the project directory, start the app with:
 cargo run
 ```
 
-This opens the full-screen terminal UI, starts a 25-minute work period, and
-shows the countdown, progress bar, and session tracking.
+This opens the full-screen terminal UI and starts a 25-minute work period. The
+clock fills the window and drains from the top as the period runs down, so it
+doubles as the progress indicator. Below it, round pips track the current cycle
+and a ribbon records the pomodoros finished this session.
+
+The UI adapts to the space it is given, down to a single status line in a small
+pane. It uses 24-bit colour where the terminal advertises it (`COLORTERM`) and
+falls back to a 256-colour palette otherwise.
 When Mija runs inside [Herdr](https://herdr.dev/), it automatically sends native
 Herdr notifications as work and break periods finish.
 

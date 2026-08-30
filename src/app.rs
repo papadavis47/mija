@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use crate::alerts::AlertDispatcher;
 use crate::config::Config;
 use crate::timer::Timer;
@@ -14,6 +16,8 @@ pub struct App {
     pub timer: Timer,
     alerts: AlertDispatcher,
     pub should_quit: bool,
+    /// When the last state change happened, so the UI can play its sweep.
+    pub last_transition: Option<Instant>,
 }
 
 impl App {
@@ -24,6 +28,7 @@ impl App {
             timer,
             alerts,
             should_quit: false,
+            last_transition: None,
         }
     }
 
@@ -45,6 +50,7 @@ impl App {
             Action::Skip => self.timer.skip(),
         };
         if let Some(t) = transition {
+            self.last_transition = Some(Instant::now());
             self.alerts.on_transition(t);
         }
     }
@@ -150,6 +156,21 @@ mod tests {
         let mut app = App::new(config, dispatcher);
         app.handle_action(Action::Tick);
         assert_eq!(alerts.lock().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn transitions_are_timestamped_for_the_ui() {
+        let (mut app, _) = test_app();
+        assert!(app.last_transition.is_none());
+        app.handle_action(Action::Skip);
+        assert!(app.last_transition.is_some());
+    }
+
+    #[test]
+    fn pausing_does_not_count_as_a_transition() {
+        let (mut app, _) = test_app();
+        app.handle_action(Action::Pause);
+        assert!(app.last_transition.is_none());
     }
 
     #[test]

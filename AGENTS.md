@@ -38,7 +38,11 @@ Re-run `cargo build --release` after code changes. Unlink the checkout with
 - `timer.rs` — `Timer` state machine (`Idle → Work → ShortBreak/LongBreak → Work`), `Transition` struct, `State` enum
 - `alerts.rs` — Structured alerts and `AlertDispatcher` with pluggable `AlertSender` implementations for Herdr, terminal bells, and desktop notifications
 - `app.rs` — `App` struct wrapping `Timer` + `AlertDispatcher`, handles `Action` dispatch
-- `ui.rs` — Ratatui rendering (status, countdown, progress gauge, round info, help)
+- `theme.rs` — Monochrome rose palette (`#c84e89` primary), truecolor/256-colour
+  detection, state→tone mapping
+- `digits.rs` — 3×5 glyph bitmaps scaled to fill the pane, used for the clock
+- `ui.rs` — Ratatui rendering (size tiers, framed layout, draining clock, round
+  pips, session ribbon, help)
 - `cli.rs` — Clap `Args` struct, converts to `Config`
 - `main.rs` — Entry point, wires CLI → Config → alert senders → App → TUI
 
