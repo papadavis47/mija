@@ -34,7 +34,10 @@ Re-run `cargo build --release` after code changes. Unlink the checkout with
 
 ## Architecture
 
-- `config.rs` — `Config` struct with durations and round count
+- `config.rs` — `Config` (durations in seconds) plus `FileConfig`, the optional
+  `config.toml` layer (durations in minutes, every key optional). Parsing and
+  path resolution are pure functions taking their inputs as arguments, so
+  neither test needs to mutate the environment
 - `timer.rs` — `Timer` state machine (`Idle → Work → ShortBreak/LongBreak → Work`), `Transition` struct, `State` enum
 - `alerts.rs` — Structured alerts and `AlertDispatcher` with pluggable `AlertSender` implementations for Herdr, terminal bells, and desktop notifications
 - `app.rs` — `App` struct wrapping `Timer` + `AlertDispatcher`, handles `Action` dispatch

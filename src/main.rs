@@ -18,16 +18,26 @@ use theme::Theme;
 
 fn main() -> io::Result<()> {
     let args = Args::parse();
-    let config = args.to_config();
+
+    // Read the config before the TUI claims the screen — once ratatui is up,
+    // a message on stderr would be painted over.
+    let file = match config::load() {
+        Ok(file) => file,
+        Err(err) => {
+            eprintln!("mija: {err}");
+            std::process::exit(1);
+        }
+    };
+    let config = args.to_config(&file);
 
     let mut senders: Vec<Box<dyn AlertSender>> = Vec::new();
     if let Some(sender) = HerdrSender::from_env() {
         senders.push(Box::new(sender));
     }
-    if args.bell {
+    if args.bell_enabled(&file) {
         senders.push(Box::new(BellSender::stdout()));
     }
-    if args.notify {
+    if args.notify_enabled(&file) {
         senders.push(Box::new(DesktopSender));
     }
     let alerts = AlertDispatcher::new(senders);

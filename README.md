@@ -51,6 +51,38 @@ cargo run -- --bell
 cargo run -- --notify
 ```
 
+### Configuration
+
+Rather than passing flags every time, put your preferences in
+`~/.config/mija/config.toml` (or `$XDG_CONFIG_HOME/mija/config.toml`; set
+`MIJA_CONFIG` to point somewhere else entirely):
+
+```toml
+work = 30          # minutes
+short_break = 7
+long_break = 20
+rounds = 3
+bell = true
+notify = false
+```
+
+Every key is optional — anything you leave out keeps its default. Durations are
+in minutes, matching the flags.
+
+Settings are layered, most specific first:
+
+1. a command-line flag
+2. the config file
+3. the built-in default
+
+So with the file above, `mija` starts a 30-minute work period while
+`mija --work 5` starts a 5-minute one. `bell` and `notify` can only be switched
+on — `--bell` turns the bell on for a run, but a `bell = true` in the file
+cannot be turned off from the command line.
+
+An unreadable file, a malformed one, or an unrecognised key stops Mija with an
+error on stderr instead of starting with settings you did not ask for.
+
 ### Herdr
 
 Run `mija` in a dedicated Herdr tab so the timer can continue while you work in
@@ -92,7 +124,11 @@ herdr plugin unlink mija.timer
 --rounds <N>          Rounds before long break (default: 4)
 --bell                Terminal bell on transitions
 --notify              Desktop notifications on transitions
+-h, --help            Print help
+-V, --version         Print version
 ```
+
+Flags override the config file; see [Configuration](#configuration).
 
 ## Tests
 
