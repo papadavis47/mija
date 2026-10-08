@@ -36,7 +36,7 @@ impl AlertDispatcher {
         let alert = match (transition.from, transition.to) {
             (State::Work, State::ShortBreak) => Alert {
                 title: "Mija",
-                body: "🍅 Pomodoro complete! Time for a short break.",
+                body: "Pomodoro complete! Time for a short break.",
                 kind: AlertKind::Completed,
             },
             (State::Work, State::LongBreak) => Alert {
@@ -46,7 +46,7 @@ impl AlertDispatcher {
             },
             (State::ShortBreak | State::LongBreak, State::Work) => Alert {
                 title: "Mija",
-                body: "🍅 Back to work!",
+                body: "Back to work!",
                 kind: AlertKind::Attention,
             },
             _ => return,
@@ -236,13 +236,20 @@ mod tests {
     }
 
     #[test]
-    fn message_for_work_complete_includes_tomato() {
+    fn work_and_break_messages_have_no_tomato() {
+        // Plain text by preference; the tomato looked out of place.
         let (dispatcher, alerts) = mock_dispatcher();
         dispatcher.on_transition(Transition {
             from: State::Work,
             to: State::ShortBreak,
         });
-        assert!(alerts.lock().unwrap()[0].body.contains("🍅"));
+        dispatcher.on_transition(Transition {
+            from: State::ShortBreak,
+            to: State::Work,
+        });
+        let alerts = alerts.lock().unwrap();
+        assert_eq!(alerts[0].body, "Pomodoro complete! Time for a short break.");
+        assert_eq!(alerts[1].body, "Back to work!");
     }
 
     #[test]
@@ -312,7 +319,7 @@ mod tests {
                 "show",
                 "Mija",
                 "--body",
-                "🍅 Pomodoro complete! Time for a short break.",
+                "Pomodoro complete! Time for a short break.",
                 "--sound",
                 "done"
             ]
@@ -329,7 +336,7 @@ mod tests {
 
         sender.send(Alert {
             title: "Mija",
-            body: "🍅 Back to work!",
+            body: "Back to work!",
             kind: AlertKind::Attention,
         });
 
@@ -368,7 +375,7 @@ mod tests {
     fn short_break_alert() -> Alert {
         Alert {
             title: "Mija",
-            body: "🍅 Pomodoro complete! Time for a short break.",
+            body: "Pomodoro complete! Time for a short break.",
             kind: AlertKind::Completed,
         }
     }
