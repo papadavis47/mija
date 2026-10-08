@@ -37,7 +37,9 @@ Re-run `cargo build --release` after code changes. Unlink the checkout with
 - `config.rs` — `Config` (durations in seconds) plus `FileConfig`, the optional
   `config.toml` layer (durations in minutes, every key optional). Parsing and
   path resolution are pure functions taking their inputs as arguments, so
-  neither test needs to mutate the environment
+  neither test needs to mutate the environment. `prepare` writes a commented
+  template on first run (default location only; never fatal) and returns a
+  `Notice` for `main` to print
 - `timer.rs` — `Timer` state machine (`Idle → Work → ShortBreak/LongBreak → Work`), `Transition` struct, `State` enum
 - `alerts.rs` — Structured alerts and `AlertDispatcher` with pluggable `AlertSender` implementations for Herdr, terminal bells, and desktop notifications
 - `app.rs` — `App` struct wrapping `Timer` + `AlertDispatcher`, handles `Action` dispatch
@@ -46,7 +48,8 @@ Re-run `cargo build --release` after code changes. Unlink the checkout with
 - `digits.rs` — 3×5 glyph bitmaps scaled to fill the pane, used for the clock
 - `ui.rs` — Ratatui rendering (size tiers, framed layout, draining clock, round
   pips, session ribbon, help)
-- `cli.rs` — Clap `Args` struct, converts to `Config`
+- `cli.rs` — Clap `Args` struct, converts to `Config`; `command` injects the
+  config path into `--help`
 - `main.rs` — Entry point, wires CLI → Config → alert senders → App → TUI
 
 ## Conventions

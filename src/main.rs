@@ -9,19 +9,22 @@ mod ui;
 
 use alerts::{AlertDispatcher, AlertSender, BellSender, DesktopSender, HerdrSender};
 use app::{Action, App};
-use clap::Parser;
-use cli::Args;
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use std::io;
 use std::time::{Duration, Instant};
 use theme::Theme;
 
 fn main() -> io::Result<()> {
-    let args = Args::parse();
+    let location = config::config_path();
+    // Parse first so `--help` and `--version` never create a config file.
+    let args = cli::parse(location.as_ref().map(|location| location.path.as_path()));
 
     // Read the config before the TUI claims the screen — once ratatui is up,
     // a message on stderr would be painted over.
-    let file = match config::load() {
+    if let Some(notice) = config::prepare(location.as_ref()) {
+        eprintln!("mija: {notice}");
+    }
+    let file = match config::load(location.as_ref()) {
         Ok(file) => file,
         Err(err) => {
             eprintln!("mija: {err}");

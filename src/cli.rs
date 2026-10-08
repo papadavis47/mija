@@ -1,4 +1,6 @@
-use clap::Parser;
+use clap::{CommandFactory, FromArgMatches, Parser};
+use std::ffi::OsString;
+use std::path::Path;
 
 use crate::config::{Config, FileConfig};
 
@@ -28,6 +30,30 @@ pub struct Args {
     /// Send desktop notifications on state transitions
     #[arg(long)]
     pub notify: bool,
+}
+
+/// The clap command with the resolved config path in `--help`. Built at
+/// runtime because the path depends on the environment.
+pub fn command(config: Option<&Path>) -> clap::Command {
+    let location = match config {
+        Some(path) => path.display().to_string(),
+        None => "none (set HOME, XDG_CONFIG_HOME or MIJA_CONFIG)".to_string(),
+    };
+    Args::command().after_help(format!("Config file: {location}"))
+}
+
+pub fn try_parse_with<I, T>(config: Option<&Path>, argv: I) -> Result<Args, clap::Error>
+where
+    I: IntoIterator<Item = T>,
+    T: Into<OsString> + Clone,
+{
+    let matches = command(config).try_get_matches_from(argv)?;
+    Args::from_arg_matches(&matches)
+}
+
+/// Parse the process arguments, exiting on `--help`, `--version` or bad input.
+pub fn parse(config: Option<&Path>) -> Args {
+    try_parse_with(config, std::env::args_os()).unwrap_or_else(|err| err.exit())
 }
 
 /// Pick a duration from the flag, then the config file, then the built-in
@@ -226,5 +252,28 @@ mod tests {
         };
         assert_eq!(err.kind(), clap::error::ErrorKind::DisplayVersion);
         assert!(err.to_string().contains(env!("CARGO_PKG_VERSION")));
+    }
+
+    #[test]
+    fn help_shows_the_config_path() {
+        let help = command(Some(Path::new("/home/me/.config/mija/config.toml")))
+            .render_help()
+            .to_string();
+        assert!(
+            help.contains("Config file: /home/me/.config/mija/config.toml"),
+            "{help}"
+        );
+    }
+
+    #[test]
+    fn help_admits_when_there_is_no_config_path() {
+        let help = command(None).render_help().to_string();
+        assert!(help.contains("Config file: none"), "{help}");
+    }
+
+    #[test]
+    fn try_parse_with_reads_flags() {
+        let args = try_parse_with(None, ["mija", "--work", "10"]).expect("valid flags");
+        assert_eq!(args.work, Some(10));
     }
 }
