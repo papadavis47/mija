@@ -1,5 +1,7 @@
 # Mija
 
+[![CI](https://github.com/papadavis47/mija/actions/workflows/ci.yml/badge.svg)](https://github.com/papadavis47/mija/actions/workflows/ci.yml)
+
 Mija is a terminal Pomodoro timer built in Rust.
 
 **Mija** is a colloquial Spanish word for "my daughter," pronounced **MEE-hah** (IPA: `/ˈmi.xa/`; the `j` sounds like an English `h`). Shortened from "_**mi hija**_".
@@ -8,6 +10,36 @@ The name comes from the word I often use when speaking to my daughter.
 
 I frequently see her while I am working at my computer, and her visits are a
 welcome reminder to take a break and spend time interacting with her.
+
+## Build and install
+
+Mija needs a Rust toolchain with edition 2024 support (Rust 1.85 or newer);
+install one with [rustup](https://rustup.rs/).
+
+Build an optimised binary from the project directory:
+
+```sh
+cargo build --release
+```
+
+It lands at `target/release/mija` and can be run from there directly.
+
+To put `mija` on your `PATH`, install it with Cargo:
+
+```sh
+cargo install --path .
+```
+
+This builds in release mode and copies the binary to `~/.cargo/bin` (make sure
+that directory is on your `PATH`). Re-run the same command after pulling
+changes to update it, and remove it with:
+
+```sh
+cargo uninstall mija
+```
+
+Once installed, every `cargo run --` example below works as plain `mija`, e.g.
+`mija --work 50`.
 
 ## Run Mija
 
