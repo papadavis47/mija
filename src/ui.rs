@@ -145,36 +145,54 @@ pub fn wrap(text: &str, width: usize) -> Vec<String> {
     lines
 }
 
-/// Where the notice popup goes and its wrapped text. Framed and centred when
-/// the pane has room; otherwise it takes the whole pane, borderless.
+/// Where the notice popup goes and its wrapped text. Tucked into the bottom
+/// right of the frame, above the footer, so it reads as an aside rather than
+/// blocking the clock. Falls back to the whole pane, borderless, when there is
+/// no room for a box.
 pub fn notice_layout(area: Rect, text: &str) -> (Rect, Vec<String>) {
+    // Frame border plus padding at the sides; above, the border; below, the
+    // border, padding and footer rows (ribbon and help, or help alone).
+    let (side, below) = match tier(area) {
+        Tier::Full => (3, 4),
+        Tier::Medium => (3, 3),
+        Tier::Compact => (0, 0),
+    };
+    let top = if side > 0 { 1 } else { 0 };
+    let room = Rect::new(
+        area.x + side,
+        area.y + top,
+        area.width.saturating_sub(2 * side),
+        area.height.saturating_sub(top + below),
+    );
+    boxed_notice(room, text).unwrap_or_else(|| (area, wrap(text, area.width as usize)))
+}
+
+/// A bordered box for `text`, anchored to the bottom right of `room`, if one
+/// fits at all.
+fn boxed_notice(room: Rect, text: &str) -> Option<(Rect, Vec<String>)> {
     // Borders plus one column of padding either side.
     const CHROME: u16 = 4;
     let text_w = text.chars().count().max(NOTICE_HINT.len()) as u16;
-    let inner_w = text_w.min(area.width.saturating_sub(CHROME));
-    if inner_w > 0 {
-        let lines = wrap(text, inner_w as usize);
-        // Borders, a blank row and the hint.
-        let height = lines.len() as u16 + 4;
-        if height <= area.height {
-            let longest = lines
-                .iter()
-                .map(|line| line.chars().count() as u16)
-                .max()
-                .unwrap_or(0)
-                .max(NOTICE_HINT.len() as u16)
-                .min(inner_w);
-            let width = longest + CHROME;
-            let popup = Rect::new(
-                area.x + (area.width - width) / 2,
-                area.y + (area.height - height) / 2,
-                width,
-                height,
-            );
-            return (popup, lines);
-        }
+    let inner_w = text_w.min(room.width.saturating_sub(CHROME));
+    if inner_w == 0 {
+        return None;
     }
-    (area, wrap(text, area.width as usize))
+    let lines = wrap(text, inner_w as usize);
+    // Borders, a blank row and the hint.
+    let height = lines.len() as u16 + 4;
+    if height > room.height {
+        return None;
+    }
+    let longest = lines
+        .iter()
+        .map(|line| line.chars().count() as u16)
+        .max()
+        .unwrap_or(0)
+        .max(NOTICE_HINT.len() as u16)
+        .min(inner_w);
+    let width = longest + CHROME;
+    let popup = Rect::new(room.right() - width, room.bottom() - height, width, height);
+    Some((popup, lines))
 }
 
 // ---- end helpers ----
@@ -823,5 +841,33 @@ mod tests {
     fn no_notice_means_no_popup() {
         let buffer = render_at(80, 30, 1122);
         assert!(!screen_text(&buffer).contains(NOTICE_HINT));
+    }
+
+    const SHORT_NOTICE: &str = "created config at /home/me/.config/mija/config.toml";
+
+    #[test]
+    fn the_notice_sits_bottom_right_inside_the_frame() {
+        // Full tier: border + padding on the right, and border + padding +
+        // ribbon + help below.
+        for (w, h) in [(200u16, 52u16), (120, 40), (80, 30)] {
+            let (popup, _) = notice_layout(rect(w, h), SHORT_NOTICE);
+            assert_eq!(popup.right(), w - 3, "right edge at {w}x{h}");
+            assert_eq!(popup.bottom(), h - 4, "bottom edge at {w}x{h}");
+        }
+        // Medium tier has only the help line below.
+        let (popup, _) = notice_layout(rect(60, 20), SHORT_NOTICE);
+        assert_eq!((popup.right(), popup.bottom()), (57, 17));
+    }
+
+    #[test]
+    fn the_notice_leaves_the_help_line_visible() {
+        for (w, h) in [(200u16, 52u16), (80, 30), (60, 20), (44, 14)] {
+            let buffer = render_with(w, h, 1122, Some(NOTICE));
+            assert!(
+                screen_text(&buffer).contains("q quit"),
+                "help hidden at {w}x{h}:\n{}",
+                screen_text(&buffer)
+            );
+        }
     }
 }
