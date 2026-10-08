@@ -146,6 +146,20 @@ Then open the timer as a Herdr-managed tab:
 herdr plugin pane open --plugin mija.timer --entrypoint timer
 ```
 
+To open it with a key instead, bind the plugin's `open` action in
+`~/.config/herdr/config.toml`:
+
+```toml
+[[keys.command]]
+key = "prefix+m"
+type = "plugin_action"
+command = "mija.timer.open"
+description = "open mija timer"
+```
+
+Reload the config (`herdr server reload-config`), then press your prefix
+followed by `m`.
+
 Remove it with:
 
 ```sh

@@ -13,3 +13,14 @@ id = "timer"
 title = "Mija"
 placement = "tab"
 command = ["./target/release/mija"]
+
+# Bind a key to this in ~/.config/herdr/config.toml:
+#   [[keys.command]]
+#   key = "prefix+m"
+#   type = "plugin_action"
+#   command = "mija.timer.open"
+[[actions]]
+id = "open"
+title = "Open Mija timer"
+contexts = ["workspace"]
+command = ["sh", "-c", "exec \"${HERDR_BIN_PATH:-herdr}\" plugin pane open --plugin mija.timer --entrypoint timer"]
