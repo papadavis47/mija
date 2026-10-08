@@ -129,6 +129,31 @@ Run `mija` in a dedicated Herdr tab so the timer can continue while you work in
 another tab. Completed work periods use Herdr's `done` notification sound;
 completed breaks use its `request` sound.
 
+#### Install as a Herdr plugin
+
+Install Mija straight from GitHub. Herdr clones the repository and builds the
+release binary on your machine, so a Rust toolchain (1.85 or newer) must be
+installed first:
+
+```sh
+herdr plugin install papadavis47/mija              # latest main
+herdr plugin install papadavis47/mija --ref v0.2.0 # a tagged release
+```
+
+Then open the timer as a Herdr-managed tab:
+
+```sh
+herdr plugin pane open --plugin mija.timer --entrypoint timer
+```
+
+Remove it with:
+
+```sh
+herdr plugin uninstall mija.timer
+```
+
+#### Local plugin development
+
 For local plugin development, build Mija and link this checkout:
 
 ```sh
@@ -142,7 +167,6 @@ Then open the timer as a Herdr-managed tab:
 herdr plugin pane open --plugin mija.timer --entrypoint timer
 ```
 
-The plugin manifest builds the release binary when installed from GitHub.
 After changing Mija's code, rebuild the linked plugin with:
 
 ```sh
