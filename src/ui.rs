@@ -4,12 +4,15 @@ use ratatui::Frame;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, BorderType, Borders, Padding, Paragraph};
+use ratatui::widgets::{Block, BorderType, Borders, Clear, Padding, Paragraph};
 
 use crate::app::App;
 use crate::digits::{self, Mask};
 use crate::theme::{Theme, Tone, accent};
 use crate::timer::State;
+
+/// Shown under a notice so the user knows how to clear it.
+pub const NOTICE_HINT: &str = "press any key";
 
 /// How long the colour sweep across the screen lasts after a state change.
 const SWEEP: Duration = Duration::from_millis(400);
@@ -114,6 +117,66 @@ pub fn sweep_x(age: Duration, width: u16) -> Option<u16> {
     let progress = age.as_secs_f64() / SWEEP.as_secs_f64();
     Some((progress * width as f64) as u16)
 }
+/// Greedy word wrap. A word longer than the line — a long path, say — is split
+/// so nothing is ever cut off.
+pub fn wrap(text: &str, width: usize) -> Vec<String> {
+    let width = width.max(1);
+    let mut lines = Vec::new();
+    let mut line = String::new();
+    for word in text.split_whitespace() {
+        let mut word: Vec<char> = word.chars().collect();
+        let used = line.chars().count();
+        if used > 0 && used + 1 + word.len() <= width {
+            line.push(' ');
+            line.extend(word);
+            continue;
+        }
+        if used > 0 {
+            lines.push(std::mem::take(&mut line));
+        }
+        while word.len() > width {
+            lines.push(word.drain(..width).collect());
+        }
+        line.extend(word);
+    }
+    if !line.is_empty() {
+        lines.push(line);
+    }
+    lines
+}
+
+/// Where the notice popup goes and its wrapped text. Framed and centred when
+/// the pane has room; otherwise it takes the whole pane, borderless.
+pub fn notice_layout(area: Rect, text: &str) -> (Rect, Vec<String>) {
+    // Borders plus one column of padding either side.
+    const CHROME: u16 = 4;
+    let text_w = text.chars().count().max(NOTICE_HINT.len()) as u16;
+    let inner_w = text_w.min(area.width.saturating_sub(CHROME));
+    if inner_w > 0 {
+        let lines = wrap(text, inner_w as usize);
+        // Borders, a blank row and the hint.
+        let height = lines.len() as u16 + 4;
+        if height <= area.height {
+            let longest = lines
+                .iter()
+                .map(|line| line.chars().count() as u16)
+                .max()
+                .unwrap_or(0)
+                .max(NOTICE_HINT.len() as u16)
+                .min(inner_w);
+            let width = longest + CHROME;
+            let popup = Rect::new(
+                area.x + (area.width - width) / 2,
+                area.y + (area.height - height) / 2,
+                width,
+                height,
+            );
+            return (popup, lines);
+        }
+    }
+    (area, wrap(text, area.width as usize))
+}
+
 // ---- end helpers ----
 
 /// A 0.0..1.0 triangle-free breath, used for the colon and the active pip.
@@ -140,6 +203,39 @@ pub fn draw(frame: &mut Frame, app: &App, theme: &Theme, elapsed: Duration) {
     {
         paint_sweep(frame, area, x, theme);
     }
+
+    if let Some(notice) = &app.notice {
+        draw_notice(frame, theme, area, notice);
+    }
+}
+
+fn draw_notice(frame: &mut Frame, theme: &Theme, area: Rect, text: &str) {
+    let (popup, lines) = notice_layout(area, text);
+    frame.render_widget(Clear, popup);
+    let ink = Style::default().bg(theme.color(Tone::Ink));
+    let word = Style::default().fg(theme.color(Tone::Blush));
+    let mut body: Vec<Line<'static>> = lines
+        .into_iter()
+        .map(|line| Line::from(Span::styled(line, word)))
+        .collect();
+
+    if popup == area {
+        frame.render_widget(Paragraph::new(body).style(ink), popup);
+        return;
+    }
+
+    body.push(Line::default());
+    body.push(Line::from(Span::styled(
+        NOTICE_HINT,
+        Style::default().fg(theme.color(Tone::Mist)),
+    )));
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .border_style(Style::default().fg(theme.color(Tone::Rose)))
+        .padding(Padding::horizontal(1))
+        .style(ink);
+    frame.render_widget(Paragraph::new(body).block(block), popup);
 }
 
 fn remaining_ratio(app: &App) -> f64 {
@@ -472,7 +568,17 @@ mod tests {
     use ratatui::backend::TestBackend;
 
     fn render_at(width: u16, height: u16, remaining_secs: u32) -> ratatui::buffer::Buffer {
+        render_with(width, height, remaining_secs, None)
+    }
+
+    fn render_with(
+        width: u16,
+        height: u16,
+        remaining_secs: u32,
+        notice: Option<&str>,
+    ) -> ratatui::buffer::Buffer {
         let mut app = App::new(Config::default(), AlertDispatcher::new(Vec::new()));
+        app.notice = notice.map(String::from);
         while app.timer.remaining_secs() > remaining_secs {
             app.handle_action(crate::app::Action::Tick);
         }
@@ -632,5 +738,90 @@ mod tests {
         assert_eq!(sweep_x(Duration::from_millis(200), 100), Some(50));
         assert_eq!(sweep_x(SWEEP, 100), None);
         assert_eq!(sweep_x(Duration::from_secs(5), 100), None);
+    }
+
+    fn row_text(buffer: &ratatui::buffer::Buffer, area: Rect, y: u16) -> String {
+        (area.x..area.x + area.width)
+            .map(|x| buffer[(x, y)].symbol().to_string())
+            .collect()
+    }
+
+    fn screen_text(buffer: &ratatui::buffer::Buffer) -> String {
+        let area = buffer.area;
+        (area.y..area.y + area.height)
+            .map(|y| row_text(buffer, area, y))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    const NOTICE: &str = "created config at /home/someone/.config/mija/config.toml";
+
+    #[test]
+    fn wrap_breaks_between_words() {
+        assert_eq!(
+            wrap("created config at /x", 10),
+            vec!["created", "config at", "/x"]
+        );
+    }
+
+    #[test]
+    fn wrap_splits_a_word_longer_than_the_line() {
+        assert_eq!(wrap("abcdefghij", 4), vec!["abcd", "efgh", "ij"]);
+    }
+
+    #[test]
+    fn wrap_keeps_short_text_on_one_line() {
+        assert_eq!(wrap("hello there", 40), vec!["hello there"]);
+    }
+
+    #[test]
+    fn the_notice_is_shown_in_full_at_every_framed_size() {
+        for (w, h) in [(120u16, 40u16), (80, 30), (44, 14), (30, 10)] {
+            let buffer = render_with(w, h, 1122, Some(NOTICE));
+            let (popup, lines) = notice_layout(rect(w, h), NOTICE);
+            let squash = |s: &str| s.split_whitespace().collect::<String>();
+            assert_eq!(
+                squash(&lines.join(" ")),
+                squash(NOTICE),
+                "wrap must not lose text at {w}x{h}"
+            );
+            for line in &lines {
+                let found = (popup.y..popup.y + popup.height)
+                    .any(|y| row_text(&buffer, popup, y).contains(line.as_str()));
+                assert!(
+                    found,
+                    "{line:?} missing at {w}x{h}:\n{}",
+                    screen_text(&buffer)
+                );
+            }
+            assert!(
+                screen_text(&buffer).contains(NOTICE_HINT),
+                "hint missing at {w}x{h}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_notice_fits_inside_the_screen() {
+        for (w, h) in [(120u16, 40u16), (44, 14), (30, 10), (10, 3), (1, 1)] {
+            let (popup, _) = notice_layout(rect(w, h), NOTICE);
+            assert!(
+                popup.right() <= w && popup.bottom() <= h,
+                "{popup:?} at {w}x{h}"
+            );
+        }
+    }
+
+    #[test]
+    fn tiny_panes_render_a_notice_without_panicking() {
+        for (w, h) in [(10u16, 3u16), (5, 2), (1, 1)] {
+            render_with(w, h, 1122, Some(NOTICE));
+        }
+    }
+
+    #[test]
+    fn no_notice_means_no_popup() {
+        let buffer = render_at(80, 30, 1122);
+        assert!(!screen_text(&buffer).contains(NOTICE_HINT));
     }
 }

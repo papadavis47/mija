@@ -18,6 +18,9 @@ pub struct App {
     pub should_quit: bool,
     /// When the last state change happened, so the UI can play its sweep.
     pub last_transition: Option<Instant>,
+    /// A message the user must acknowledge, shown over the timer until a key
+    /// is pressed.
+    pub notice: Option<String>,
 }
 
 impl App {
@@ -29,6 +32,7 @@ impl App {
             alerts,
             should_quit: false,
             last_transition: None,
+            notice: None,
         }
     }
 
@@ -52,6 +56,23 @@ impl App {
         if let Some(t) = transition {
             self.last_transition = Some(Instant::now());
             self.alerts.on_transition(t);
+        }
+    }
+
+    /// Map a key press to an action. While a notice is up the press only
+    /// dismisses it, so a stray key cannot skip or pause — except `q`.
+    pub fn press_key(&mut self, key: char) {
+        if key == 'q' {
+            self.handle_action(Action::Quit);
+            return;
+        }
+        if self.notice.take().is_some() {
+            return;
+        }
+        match key {
+            ' ' => self.toggle_pause(),
+            's' => self.handle_action(Action::Skip),
+            _ => {}
         }
     }
 
@@ -186,5 +207,47 @@ mod tests {
         app.toggle_pause();
         app.toggle_pause();
         assert_eq!(app.timer.state(), State::Work);
+    }
+
+    #[test]
+    fn app_starts_without_a_notice() {
+        let (app, _) = test_app();
+        assert_eq!(app.notice, None);
+    }
+
+    #[test]
+    fn keys_drive_the_timer_when_no_notice_is_up() {
+        let (mut app, _) = test_app();
+        app.press_key('s');
+        assert_eq!(app.timer.state(), State::ShortBreak);
+        app.press_key(' ');
+        assert_eq!(app.timer.state(), State::Paused);
+        app.press_key('q');
+        assert!(app.should_quit);
+    }
+
+    #[test]
+    fn unknown_keys_do_nothing() {
+        let (mut app, _) = test_app();
+        app.press_key('x');
+        assert_eq!(app.timer.state(), State::Work);
+        assert!(!app.should_quit);
+    }
+
+    #[test]
+    fn a_key_only_dismisses_a_notice() {
+        let (mut app, _) = test_app();
+        app.notice = Some("created config at /x".into());
+        app.press_key('s');
+        assert_eq!(app.notice, None);
+        assert_eq!(app.timer.state(), State::Work, "dismissing must not skip");
+    }
+
+    #[test]
+    fn quit_still_works_while_a_notice_is_up() {
+        let (mut app, _) = test_app();
+        app.notice = Some("created config at /x".into());
+        app.press_key('q');
+        assert!(app.should_quit);
     }
 }

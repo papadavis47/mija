@@ -66,8 +66,9 @@ bell = true
 notify = false
 ```
 
-On first run Mija creates this file with every key commented out and prints
-`mija: created config at …`. Uncomment a line to change it. `mija --help` always shows where the file lives.
+On first run Mija creates this file with every key commented out and tells you
+where it is — `created config at …` stays over the timer until you press a key.
+Uncomment a line to change it. `mija --help` always shows where the file lives.
 
 Every key is optional — anything you leave out keeps its default. Durations are
 in minutes, matching the flags.
@@ -83,8 +84,8 @@ So with the file above, `mija` starts a 30-minute work period while
 on — `--bell` turns the bell on for a run, but a `bell = true` in the file
 cannot be turned off from the command line.
 
-If `MIJA_CONFIG` points to a file that does not exist, Mija warns on stderr
-and runs with the defaults; it only ever creates the file at the default location.
+If `MIJA_CONFIG` points to a file that does not exist, Mija says so the same
+way and runs with the defaults; it only ever creates the file at the default location.
 
 An unreadable file, a malformed one, or an unrecognised key stops Mija with an
 error on stderr instead of starting with settings you did not ask for.

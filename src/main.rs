@@ -21,7 +21,10 @@ fn main() -> io::Result<()> {
 
     // Read the config before the TUI claims the screen — once ratatui is up,
     // a message on stderr would be painted over.
-    if let Some(notice) = config::prepare(location.as_ref()) {
+    // The notice also goes in the TUI, where it must be acknowledged; stderr
+    // keeps a copy in the scrollback once the alternate screen is gone.
+    let notice = config::prepare(location.as_ref()).map(|notice| notice.to_string());
+    if let Some(notice) = &notice {
         eprintln!("mija: {notice}");
     }
     let file = match config::load(location.as_ref()) {
@@ -45,10 +48,14 @@ fn main() -> io::Result<()> {
     }
     let alerts = AlertDispatcher::new(senders);
 
-    run_tui(config, alerts)
+    run_tui(config, alerts, notice)
 }
 
-fn run_tui(config: config::Config, alerts: AlertDispatcher) -> io::Result<()> {
+fn run_tui(
+    config: config::Config,
+    alerts: AlertDispatcher,
+    notice: Option<String>,
+) -> io::Result<()> {
     /// Redraw cadence. Fast enough for the colon to breathe and the
     /// transition sweep to read as motion.
     const FRAME: Duration = Duration::from_millis(100);
@@ -56,6 +63,7 @@ fn run_tui(config: config::Config, alerts: AlertDispatcher) -> io::Result<()> {
 
     let mut terminal = ratatui::init();
     let mut app = App::new(config, alerts);
+    app.notice = notice;
     let theme = Theme::from_env();
     let started = Instant::now();
     let mut next_tick = Instant::now() + TICK;
@@ -68,10 +76,9 @@ fn run_tui(config: config::Config, alerts: AlertDispatcher) -> io::Result<()> {
             && key.kind == KeyEventKind::Press
         {
             match key.code {
-                KeyCode::Char('q') => app.handle_action(Action::Quit),
-                KeyCode::Char(' ') => app.toggle_pause(),
-                KeyCode::Char('s') => app.handle_action(Action::Skip),
-                _ => {}
+                KeyCode::Char(c) => app.press_key(c),
+                // Non-character keys still dismiss a notice.
+                _ => app.notice = None,
             }
         }
 
