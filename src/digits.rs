@@ -31,8 +31,8 @@ const COLON: [u8; GLYPH_H] = [0b0, 0b1, 0b0, 0b1, 0b0];
 
 /// Ceiling on glyph scale. Left to grow freely the clock swallows a maximized
 /// terminal; capped, it stays a focal point with room to breathe around it.
-const MAX_SCALE_Y: usize = 5;
-const MAX_SCALE_X: usize = 7;
+const MAX_SCALE_Y: usize = 4;
+const MAX_SCALE_X: usize = 5;
 
 fn glyph(ch: char) -> Option<[u8; GLYPH_H]> {
     match ch {
@@ -231,8 +231,8 @@ mod tests {
     #[test]
     fn fit_scale_stops_growing_on_a_maximized_terminal() {
         // Budget from a 200x52 terminal, and from one far larger.
-        assert_eq!(fit_scale("18:42", 194, 41), Some((7, 5)));
-        assert_eq!(fit_scale("18:42", 500, 200), Some((7, 5)));
+        assert_eq!(fit_scale("18:42", 194, 41), Some((5, 4)));
+        assert_eq!(fit_scale("18:42", 500, 200), Some((5, 4)));
     }
 
     #[test]
