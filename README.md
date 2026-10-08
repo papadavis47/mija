@@ -80,9 +80,9 @@ Settings are layered, most specific first:
 3. the built-in default
 
 So with the file above, `mija` starts a 30-minute work period while
-`mija --work 5` starts a 5-minute one. `bell` and `notify` can only be switched
-on — `--bell` turns the bell on for a run, but a `bell = true` in the file
-cannot be turned off from the command line.
+`mija --work 5` starts a 5-minute one. Alerts work the same way: `--bell` and
+`--notify` switch them on for a run, `--no-bell` and `--no-notify` switch them
+off even when the file turns them on. If both forms are given, the last wins.
 
 If `MIJA_CONFIG` points to a file that does not exist, Mija says so the same
 way and runs with the defaults; it only ever creates the file at the default location.
@@ -130,7 +130,9 @@ herdr plugin unlink mija.timer
 --long-break <MIN>    Long break duration (default: 15)
 --rounds <N>          Rounds before long break (default: 4)
 --bell                Terminal bell on transitions
+--no-bell             No terminal bell, even if the config turns it on
 --notify              Desktop notifications on transitions
+--no-notify           No desktop notifications, even if the config turns them on
 -h, --help            Print help
 -V, --version         Print version
 ```

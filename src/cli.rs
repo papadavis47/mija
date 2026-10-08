@@ -24,12 +24,29 @@ pub struct Args {
     pub rounds: Option<u32>,
 
     /// Send a terminal bell on state transitions
-    #[arg(long)]
+    #[arg(long, overrides_with = "no_bell")]
     pub bell: bool,
 
+    /// No terminal bell, even if the config file turns it on
+    #[arg(long, overrides_with = "bell")]
+    pub no_bell: bool,
+
     /// Send desktop notifications on state transitions
-    #[arg(long)]
+    #[arg(long, overrides_with = "no_notify")]
     pub notify: bool,
+
+    /// No desktop notifications, even if the config file turns them on
+    #[arg(long, overrides_with = "notify")]
+    pub no_notify: bool,
+}
+
+/// A flag either way beats the file; with no flag the file decides.
+fn resolve_switch(on: bool, off: bool, file: Option<bool>) -> bool {
+    if off {
+        false
+    } else {
+        on || file.unwrap_or(false)
+    }
 }
 
 /// The clap command with the resolved config path in `--help`. Built at
@@ -84,13 +101,12 @@ impl Args {
         }
     }
 
-    /// A flag can only switch an alert on, so the flag and the file are OR'd.
     pub fn bell_enabled(&self, file: &FileConfig) -> bool {
-        self.bell || file.bell.unwrap_or(false)
+        resolve_switch(self.bell, self.no_bell, file.bell)
     }
 
     pub fn notify_enabled(&self, file: &FileConfig) -> bool {
-        self.notify || file.notify.unwrap_or(false)
+        resolve_switch(self.notify, self.no_notify, file.notify)
     }
 }
 
@@ -275,5 +291,43 @@ mod tests {
     fn try_parse_with_reads_flags() {
         let args = try_parse_with(None, ["mija", "--work", "10"]).expect("valid flags");
         assert_eq!(args.work, Some(10));
+    }
+
+    fn alerts_on_in_file() -> FileConfig {
+        FileConfig {
+            bell: Some(true),
+            notify: Some(true),
+            ..FileConfig::default()
+        }
+    }
+
+    #[test]
+    fn no_flags_turn_off_alerts_the_file_turns_on() {
+        let args = Args::parse_from(["mija", "--no-bell", "--no-notify"]);
+        assert!(!args.bell_enabled(&alerts_on_in_file()));
+        assert!(!args.notify_enabled(&alerts_on_in_file()));
+    }
+
+    #[test]
+    fn no_bell_leaves_notify_alone() {
+        let args = Args::parse_from(["mija", "--no-bell"]);
+        assert!(!args.bell_enabled(&alerts_on_in_file()));
+        assert!(args.notify_enabled(&alerts_on_in_file()));
+    }
+
+    #[test]
+    fn the_last_of_bell_and_no_bell_wins() {
+        let off = Args::parse_from(["mija", "--bell", "--no-bell"]);
+        assert!(!off.bell_enabled(&no_file()));
+        let on = Args::parse_from(["mija", "--no-bell", "--bell"]);
+        assert!(on.bell_enabled(&alerts_on_in_file()));
+    }
+
+    #[test]
+    fn the_last_of_notify_and_no_notify_wins() {
+        let off = Args::parse_from(["mija", "--notify", "--no-notify"]);
+        assert!(!off.notify_enabled(&no_file()));
+        let on = Args::parse_from(["mija", "--no-notify", "--notify"]);
+        assert!(on.notify_enabled(&alerts_on_in_file()));
     }
 }
