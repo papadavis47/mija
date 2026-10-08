@@ -25,12 +25,50 @@ impl Default for Config {
 #[derive(Debug, Default, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FileConfig {
+    #[serde(default, deserialize_with = "minutes")]
     pub work: Option<u32>,
+    #[serde(default, deserialize_with = "minutes")]
     pub short_break: Option<u32>,
+    #[serde(default, deserialize_with = "minutes")]
     pub long_break: Option<u32>,
+    #[serde(default, deserialize_with = "rounds")]
     pub rounds: Option<u32>,
     pub bell: Option<bool>,
     pub notify: Option<bool>,
+}
+
+/// Longest period accepted: a day. Also keeps minutes × 60 well inside `u32`.
+pub const MAX_MINUTES: u32 = 24 * 60;
+/// Most rounds before a long break. Each round is drawn as a pip, so an absurd
+/// count would allocate an absurd row.
+pub const MAX_ROUNDS: u32 = 24;
+
+/// Zero, or more than `max`, is never what the user meant, so it is rejected
+/// like any other bad value rather than quietly corrected. Shared with the CLI
+/// so both sources fail with the same words.
+pub fn check(value: u32, max: u32) -> Result<u32, String> {
+    match value {
+        0 => Err("must be at least 1".to_string()),
+        v if v > max => Err(format!("must be at most {max}")),
+        v => Ok(v),
+    }
+}
+
+fn checked<'de, D>(deserializer: D, max: u32) -> Result<Option<u32>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    check(u32::deserialize(deserializer)?, max)
+        .map(Some)
+        .map_err(serde::de::Error::custom)
+}
+
+fn minutes<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<u32>, D::Error> {
+    checked(d, MAX_MINUTES)
+}
+
+fn rounds<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<u32>, D::Error> {
+    checked(d, MAX_ROUNDS)
 }
 
 /// Parse config text. Kept separate from the filesystem so the parsing rules
@@ -414,5 +452,57 @@ notify = false
         assert!(missing.contains("/x/config.toml"), "{missing}");
         assert!(missing.contains("MIJA_CONFIG"), "{missing}");
         assert!(missing.contains("defaults"), "{missing}");
+    }
+
+    #[test]
+    fn parse_rejects_zero_for_every_duration_and_rounds() {
+        for key in ["work", "short_break", "long_break", "rounds"] {
+            let err = parse(&format!("{key} = 0")).expect_err("zero must be rejected");
+            let message = err.to_string();
+            assert!(message.contains("at least 1"), "{key}: {message}");
+            assert!(message.contains(key), "error should name {key}: {message}");
+        }
+    }
+
+    #[test]
+    fn parse_accepts_one() {
+        let file = parse("work = 1\nrounds = 1").expect("1 is valid");
+        assert_eq!(file.work, Some(1));
+        assert_eq!(file.rounds, Some(1));
+    }
+
+    #[test]
+    fn check_accepts_the_whole_range() {
+        assert_eq!(check(1, MAX_MINUTES), Ok(1));
+        assert_eq!(check(MAX_MINUTES, MAX_MINUTES), Ok(MAX_MINUTES));
+    }
+
+    #[test]
+    fn check_rejects_zero_and_too_much() {
+        assert_eq!(check(0, MAX_MINUTES), Err("must be at least 1".to_string()));
+        assert_eq!(
+            check(MAX_MINUTES + 1, MAX_MINUTES),
+            Err(format!("must be at most {MAX_MINUTES}"))
+        );
+    }
+
+    #[test]
+    fn caps_are_a_day_and_two_dozen_rounds() {
+        assert_eq!(MAX_MINUTES, 24 * 60);
+        assert_eq!(MAX_ROUNDS, 24);
+    }
+
+    #[test]
+    fn parse_rejects_values_over_the_cap() {
+        for (key, max) in [
+            ("work", MAX_MINUTES),
+            ("short_break", MAX_MINUTES),
+            ("long_break", MAX_MINUTES),
+            ("rounds", MAX_ROUNDS),
+        ] {
+            let err = parse(&format!("{key} = {}", max + 1)).expect_err("over the cap");
+            assert!(err.to_string().contains("at most"), "{key}: {err}");
+            assert!(parse(&format!("{key} = {max}")).is_ok(), "{key} = {max}");
+        }
     }
 }

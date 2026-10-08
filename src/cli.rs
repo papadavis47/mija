@@ -2,25 +2,25 @@ use clap::{CommandFactory, FromArgMatches, Parser};
 use std::ffi::OsString;
 use std::path::Path;
 
-use crate::config::{Config, FileConfig};
+use crate::config::{self, Config, FileConfig};
 
 #[derive(Parser)]
 #[command(name = "mija", version, about = "A pomodoro timer for the terminal")]
 pub struct Args {
-    /// Work duration in minutes [default: 25]
-    #[arg(long)]
+    /// Work duration in minutes, 1–1440 [default: 25]
+    #[arg(long, value_parser = minutes)]
     pub work: Option<u32>,
 
-    /// Short break duration in minutes [default: 5]
-    #[arg(long)]
+    /// Short break duration in minutes, 1–1440 [default: 5]
+    #[arg(long, value_parser = minutes)]
     pub short_break: Option<u32>,
 
-    /// Long break duration in minutes [default: 15]
-    #[arg(long)]
+    /// Long break duration in minutes, 1–1440 [default: 15]
+    #[arg(long, value_parser = minutes)]
     pub long_break: Option<u32>,
 
-    /// Number of work rounds before a long break [default: 4]
-    #[arg(long)]
+    /// Number of work rounds before a long break, 1–24 [default: 4]
+    #[arg(long, value_parser = rounds)]
     pub rounds: Option<u32>,
 
     /// Send a terminal bell on state transitions
@@ -38,6 +38,19 @@ pub struct Args {
     /// No desktop notifications, even if the config file turns them on
     #[arg(long, overrides_with = "notify")]
     pub no_notify: bool,
+}
+
+fn parse_within(value: &str, max: u32) -> Result<u32, String> {
+    let value = value.parse::<u32>().map_err(|err| err.to_string())?;
+    config::check(value, max)
+}
+
+fn minutes(value: &str) -> Result<u32, String> {
+    parse_within(value, config::MAX_MINUTES)
+}
+
+fn rounds(value: &str) -> Result<u32, String> {
+    parse_within(value, config::MAX_ROUNDS)
 }
 
 /// A flag either way beats the file; with no flag the file decides.
@@ -329,5 +342,59 @@ mod tests {
         assert!(!off.notify_enabled(&no_file()));
         let on = Args::parse_from(["mija", "--no-notify", "--notify"]);
         assert!(on.notify_enabled(&alerts_on_in_file()));
+    }
+
+    #[test]
+    fn zero_is_rejected_for_every_duration_and_rounds() {
+        for flag in ["--work", "--short-break", "--long-break", "--rounds"] {
+            let err = match Args::try_parse_from(["mija", flag, "0"]) {
+                Ok(_) => panic!("{flag} 0 should be rejected"),
+                Err(err) => err,
+            };
+            assert_eq!(
+                err.kind(),
+                clap::error::ErrorKind::ValueValidation,
+                "{flag}"
+            );
+            assert!(
+                err.to_string().contains("must be at least 1"),
+                "{flag}: {err}"
+            );
+        }
+    }
+
+    #[test]
+    fn one_is_the_smallest_accepted_value() {
+        for flag in ["--work", "--short-break", "--long-break", "--rounds"] {
+            assert!(
+                Args::try_parse_from(["mija", flag, "1"]).is_ok(),
+                "{flag} 1 should be accepted"
+            );
+        }
+    }
+
+    #[test]
+    fn values_over_the_cap_are_rejected() {
+        use crate::config::{MAX_MINUTES, MAX_ROUNDS};
+        for (flag, max) in [
+            ("--work", MAX_MINUTES),
+            ("--short-break", MAX_MINUTES),
+            ("--long-break", MAX_MINUTES),
+            ("--rounds", MAX_ROUNDS),
+        ] {
+            let over = (max + 1).to_string();
+            let err = match Args::try_parse_from(["mija", flag, over.as_str()]) {
+                Ok(_) => panic!("{flag} {over} should be rejected"),
+                Err(err) => err,
+            };
+            assert!(err.to_string().contains("must be at most"), "{flag}: {err}");
+            let at_max = max.to_string();
+            assert!(Args::try_parse_from(["mija", flag, at_max.as_str()]).is_ok());
+        }
+    }
+
+    #[test]
+    fn a_huge_value_is_rejected_rather_than_overflowing() {
+        assert!(Args::try_parse_from(["mija", "--work", "100000000"]).is_err());
     }
 }

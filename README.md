@@ -71,7 +71,8 @@ where it is — `created config at …` stays over the timer until you press a k
 Uncomment a line to change it. `mija --help` always shows where the file lives.
 
 Every key is optional — anything you leave out keeps its default. Durations are
-in minutes, matching the flags.
+in minutes, matching the flags. Durations must be 1–1440 minutes (up to a day) and
+`rounds` 1–24, in the file and on the command line.
 
 Settings are layered, most specific first:
 
@@ -125,10 +126,10 @@ herdr plugin unlink mija.timer
 ### Options
 
 ```
---work <MIN>          Work duration in minutes (default: 25)
---short-break <MIN>   Short break duration (default: 5)
---long-break <MIN>    Long break duration (default: 15)
---rounds <N>          Rounds before long break (default: 4)
+--work <MIN>          Work duration in minutes, 1–1440 (default: 25)
+--short-break <MIN>   Short break duration, 1–1440 (default: 5)
+--long-break <MIN>    Long break duration, 1–1440 (default: 15)
+--rounds <N>          Rounds before long break, 1–24 (default: 4)
 --bell                Terminal bell on transitions
 --no-bell             No terminal bell, even if the config turns it on
 --notify              Desktop notifications on transitions
