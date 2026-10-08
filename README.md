@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo-mark-rose.png" width="128" alt="Mija logo: a pomodoro dial with an M monogram">
+</p>
+
 # Mija
 
 [![CI](https://github.com/papadavis47/mija/actions/workflows/ci.yml/badge.svg)](https://github.com/papadavis47/mija/actions/workflows/ci.yml)
