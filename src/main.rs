@@ -10,6 +10,7 @@ mod ui;
 use alerts::{AlertDispatcher, AlertSender, BellSender, DesktopSender, HerdrSender};
 use app::{App, Clock, Reading};
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
+use ratatui::DefaultTerminal;
 use std::io;
 use std::time::{Duration, Instant};
 use theme::Theme;
@@ -56,19 +57,28 @@ fn run_tui(
     alerts: AlertDispatcher,
     notice: Option<String>,
 ) -> io::Result<()> {
+    let mut app = App::new(config, alerts);
+    app.notice = notice;
+
+    let mut terminal = ratatui::init();
+    // Restore on every exit, error included — a `?` inside the loop must not
+    // leave the shell in raw mode on the alternate screen.
+    let result = run_loop(&mut terminal, &mut app);
+    ratatui::restore();
+    result
+}
+
+fn run_loop(terminal: &mut DefaultTerminal, app: &mut App) -> io::Result<()> {
     /// Redraw cadence. Fast enough for the colon to breathe and the
     /// transition sweep to read as motion.
     const FRAME: Duration = Duration::from_millis(100);
 
-    let mut terminal = ratatui::init();
-    let mut app = App::new(config, alerts);
-    app.notice = notice;
     let theme = Theme::from_env();
     let started = Instant::now();
     let mut clock = Clock::new(Reading::now());
 
-    let result = loop {
-        terminal.draw(|frame| ui::draw(frame, &app, &theme, started.elapsed()))?;
+    loop {
+        terminal.draw(|frame| ui::draw(frame, app, &theme, started.elapsed()))?;
 
         if event::poll(FRAME)?
             && let Event::Key(key) = event::read()?
@@ -84,10 +94,7 @@ fn run_tui(
         app.catch_up(clock.due(Reading::now()));
 
         if app.should_quit {
-            break Ok(());
+            return Ok(());
         }
-    };
-
-    ratatui::restore();
-    result
+    }
 }
