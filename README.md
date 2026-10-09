@@ -141,7 +141,7 @@ installed first:
 
 ```sh
 herdr plugin install papadavis47/mija              # latest main
-herdr plugin install papadavis47/mija --ref v0.3.0 # a tagged release
+herdr plugin install papadavis47/mija --ref v0.3.1 # a tagged release
 ```
 
 Then open the timer as a Herdr-managed tab:
