@@ -1,4 +1,4 @@
-<p align="center">
+<p>
   <img src="assets/logo-mark-rose.png" width="128" alt="Mija logo: a pomodoro dial with an M monogram">
 </p>
 
