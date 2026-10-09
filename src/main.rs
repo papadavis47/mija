@@ -8,7 +8,7 @@ mod timer;
 mod ui;
 
 use alerts::{AlertDispatcher, AlertSender, BellSender, DesktopSender, HerdrSender};
-use app::{Action, App};
+use app::{App, Clock, Reading};
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use std::io;
 use std::time::{Duration, Instant};
@@ -59,14 +59,13 @@ fn run_tui(
     /// Redraw cadence. Fast enough for the colon to breathe and the
     /// transition sweep to read as motion.
     const FRAME: Duration = Duration::from_millis(100);
-    const TICK: Duration = Duration::from_secs(1);
 
     let mut terminal = ratatui::init();
     let mut app = App::new(config, alerts);
     app.notice = notice;
     let theme = Theme::from_env();
     let started = Instant::now();
-    let mut next_tick = Instant::now() + TICK;
+    let mut clock = Clock::new(Reading::now());
 
     let result = loop {
         terminal.draw(|frame| ui::draw(frame, &app, &theme, started.elapsed()))?;
@@ -82,12 +81,7 @@ fn run_tui(
             }
         }
 
-        // Driven by the clock rather than the poll timeout, so holding a key
-        // can no longer stall the countdown.
-        while Instant::now() >= next_tick {
-            next_tick += TICK;
-            app.handle_action(Action::Tick);
-        }
+        app.catch_up(clock.due(Reading::now()));
 
         if app.should_quit {
             break Ok(());
