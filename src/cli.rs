@@ -5,7 +5,12 @@ use std::path::Path;
 use crate::config::{self, Config, FileConfig};
 
 #[derive(Parser)]
-#[command(name = "mija", version, about = "A pomodoro timer for the terminal")]
+#[command(
+    name = "mija",
+    version,
+    about = "A terminal pomodoro timer in Rust, with Herdr integration",
+    help_template = "{name} {version}\n{about}\n\n{usage-heading} {usage}\n\n{all-args}{after-help}"
+)]
 pub struct Args {
     /// Work duration in minutes, 1–1440 [default: 25]
     #[arg(long, value_parser = minutes)]
@@ -69,7 +74,10 @@ pub fn command(config: Option<&Path>) -> clap::Command {
         Some(path) => path.display().to_string(),
         None => "none (set HOME, XDG_CONFIG_HOME or MIJA_CONFIG)".to_string(),
     };
-    Args::command().after_help(format!("Config file: {location}"))
+    Args::command().after_help(format!(
+        "Config file: {location}\nRepository: {}",
+        env!("CARGO_PKG_REPOSITORY")
+    ))
 }
 
 pub fn try_parse_with<I, T>(config: Option<&Path>, argv: I) -> Result<Args, clap::Error>
@@ -290,6 +298,32 @@ mod tests {
             .to_string();
         assert!(
             help.contains("Config file: /home/me/.config/mija/config.toml"),
+            "{help}"
+        );
+    }
+
+    #[test]
+    fn help_opens_with_name_and_version_then_the_subtitle() {
+        let help = command(None).render_help().to_string();
+        let mut lines = help.lines();
+        assert_eq!(
+            lines.next(),
+            Some(concat!("mija ", env!("CARGO_PKG_VERSION"))),
+            "{help}"
+        );
+        assert_eq!(
+            lines.next(),
+            Some("A terminal pomodoro timer in Rust, with Herdr integration"),
+            "{help}"
+        );
+    }
+
+    #[test]
+    fn help_ends_with_the_repository() {
+        let help = command(None).render_help().to_string();
+        assert_eq!(
+            help.trim_end().lines().last(),
+            Some("Repository: https://github.com/papadavis47/mija"),
             "{help}"
         );
     }

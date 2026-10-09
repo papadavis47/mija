@@ -59,8 +59,10 @@ Unlink the checkout with `herdr plugin unlink mija.timer`.
   pips, session ribbon, help, notice popup anchored bottom-right above the
   footer)
 - `cli.rs` — Clap `Args` struct, converts to `Config`; `command` injects the
-  config path into `--help`. `--x` / `--no-x` alert pairs use `overrides_with`
-  (last wins) and beat the config file
+  config path into `--help`. A help template puts name + version above the
+  subtitle; the footer ends with the repository URL (from `Cargo.toml`
+  `repository`). `--x` / `--no-x` alert pairs use `overrides_with` (last wins)
+  and beat the config file
 - `main.rs` — Entry point, wires CLI → Config → alert senders → App → TUI
 
 Outside `src/`:
